@@ -1,0 +1,50 @@
+name: IUH activity monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:17–22:47 Asia/Ho_Chi_Minh, every 30 minutes.
+    - cron: '17,47 0-15 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: iuh-activity-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_SCHEDULE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Python packages
+        run: python -m pip install -r requirements.txt
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Check IUH and notify Telegram
+        env:
+          IUH_MSSV: ${{ secrets.IUH_MSSV }}
+          IUH_PASSWORD: ${{ secrets.IUH_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: python monitor.py
+      - name: Save notification history
+        uses: actions/upload-artifact@v5
+        with:
+          name: iuh-monitor-state
+          path: .monitor-state.json
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
