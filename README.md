@@ -23,7 +23,7 @@ Workflow mở trang Đoàn TN IUH, dùng Gemini đọc CAPTCHA, đăng nhập, k
 
 Vào **Actions → IUH activity monitor → Run workflow**. Lượt chạy thủ công sẽ gửi Telegram một tin tổng kết, rồi gửi riêng từng hoạt động được nhận diện là mới và đang cho đăng ký. Mở log của lượt chạy để xem số hoạt động và lỗi nếu có. Lượt chạy thành công sẽ lưu danh sách mã băm hoạt động trong artifact `iuh-monitor-state`, giúp các lượt sau không gửi lặp.
 
-Lịch tự động có sẵn nhưng **chưa bật**. Sau khi xác nhận lượt chạy thử nhận diện đúng, vào **Settings → Secrets and variables → Actions → Variables**, tạo `ENABLE_SCHEDULE` với giá trị `true`. Workflow sẽ kiểm tra mỗi 30 phút từ **07:17 đến 22:47 giờ Việt Nam**. Tắt lịch bằng cách đổi giá trị thành `false` hoặc xóa variable. GitHub có thể chạy lịch trễ hoặc bỏ một lượt khi tải cao.
+Lịch tự động có sẵn nhưng **chưa bật**. Sau khi xác nhận lượt chạy thử nhận diện đúng, vào **Settings → Secrets and variables → Actions → Variables**, tạo `ENABLE_SCHEDULE` với giá trị `true`. Workflow sẽ kiểm tra mỗi 30 phút **liên tục 24/7**. Tắt lịch bằng cách đổi giá trị thành `false` hoặc xóa variable. GitHub có thể chạy lịch trễ hoặc bỏ một lượt khi tải cao.
 
 Nếu muốn chạy thử lại ngay, bấm **Run workflow** lần nữa. Tin tổng kết vẫn được gửi, còn hoạt động đã thấy sẽ không được thông báo lặp. Artifact được giữ 90 ngày và được làm mới sau mỗi lượt chạy thành công. Nếu không có lượt thành công trong 90 ngày, lịch sử có thể mất và các hoạt động còn mở sẽ được gửi lại.
 

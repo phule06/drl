@@ -3,8 +3,8 @@ name: IUH activity monitor
 on:
   workflow_dispatch:
   schedule:
-    # 07:17–22:47 Asia/Ho_Chi_Minh, every 30 minutes.
-    - cron: '17,47 0-15 * * *'
+    # 24/7, every 30 minutes.
+    - cron: '17,47 * * * *'
 
 permissions:
   contents: read
