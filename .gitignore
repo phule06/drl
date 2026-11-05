@@ -6,3 +6,4 @@ __pycache__/
 .monitor-state.json
 playwright-report/
 test-results/
+README.md
