@@ -55,7 +55,7 @@ class Activity:
 
 
 def parse_activity(raw: dict) -> Activity | None:
-    """Trả về Activity nếu nút Đăng ký còn active, ngược lại trả về None."""
+    """Trả về Activity nếu còn chỗ dựa theo số lượng (x/y) trong tên."""
     cells = [" ".join(str(x).split()) for x in raw.get("cells", [])]
     if len(cells) != 6:
         return None
@@ -66,8 +66,21 @@ def parse_activity(raw: dict) -> Activity | None:
         line.strip() for line in str(raw.get("details", "")).splitlines()
         if line.strip()
     )
-    if not raw.get("register_action"):
+
+    # 1. Nếu bản thân đã đăng ký rồi -> Bỏ qua
+    if "da dang ky" in plain(status):
         return None
+
+    # 2. Tìm dạng (đã đăng ký / tổng số) trong tên, ví dụ: (150/150)
+    match = re.search(r"\((\d+)\s*/\s*(\d+)\)", name)
+    if not match:
+        return None
+
+    registered, total = int(match.group(1)), int(match.group(2))
+    if registered >= total:
+        return None  # Đã đủ số lượng (ví dụ: 150/150) -> bỏ qua
+
+    # Còn chỗ trống!
     identity = "|".join((plain(name), plain(semester), plain(details)))
     key = hashlib.sha256(identity.encode("utf-8")).hexdigest()
     return Activity(name, semester, points, deadline, status, details, key)
@@ -88,16 +101,7 @@ async def extract_activities(page) -> list[Activity]:
           catch { /* Bỏ qua nếu selector lỗi. */ }
         }
 
-        // Kiểm tra cột cuối có nút Đăng ký active không (không phải "Đã đăng ký" hay bị disabled)
-        const status = cells[5];
-        const actions = status ? [...status.querySelectorAll('a, button, input[type="submit"]')] : [];
-        const registerAction = actions.some(el => {
-          const label = (el.innerText || el.value || el.getAttribute('title') || '').toLowerCase();
-          const disabled = el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled');
-          return !disabled && /đăng ký|dang ky|register/.test(label) && !/đã đăng ký|da dang ky|hủy|huy/.test(label);
-        });
-
-        return {cells: cells.map(c => c.innerText.trim()), details, register_action: registerAction};
+        return {cells: cells.map(c => c.innerText.trim()), details};
     })""")
 
     if not rows:
