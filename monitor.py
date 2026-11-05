@@ -24,7 +24,7 @@ from playwright.async_api import async_playwright
 IUH_URL = "https://doantn.iuh.edu.vn/"
 STATE_FILE = Path(".monitor-state.json")
 ARTIFACT_NAME = "iuh-monitor-state"
-GEMINI_MODEL = "gemini-3.5-flash-lite"
+GEMINI_MODELS = ("gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite")
 
 
 def plain(value: str) -> str:
@@ -118,7 +118,7 @@ async def extract_activities(page) -> list[Activity]:
 
 
 async def solve_captcha(client: httpx.AsyncClient, image: bytes, api_key: str) -> str:
-    """Gửi ảnh CAPTCHA lên Gemini và trả về mã ký tự."""
+    """Gửi ảnh CAPTCHA lên Gemini, tự động chuyển model dự phòng nếu gặp lỗi 503."""
     payload = {
         "contents": [{"parts": [
             {"text": "Read the letters and digits in this image. Return only the exact code, with no spaces or explanation."},
@@ -126,16 +126,32 @@ async def solve_captcha(client: httpx.AsyncClient, image: bytes, api_key: str) -
         ]}],
         "generationConfig": {"maxOutputTokens": 256},
     }
-    response = await client.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-        headers={"x-goog-api-key": api_key}, json=payload,
-    )
-    response.raise_for_status()
-    parts = response.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
-    answer = "".join(part.get("text", "") for part in parts).strip().strip("`'\" ")
-    if not re.fullmatch(r"[A-Za-z0-9]{1,32}", answer):
-        raise RuntimeError("Gemini khong tra ve ma CAPTCHA hop le.")
-    return answer
+    last_error = None
+    for model in GEMINI_MODELS:
+        for attempt in range(2):
+            try:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                    headers={"x-goog-api-key": api_key}, json=payload,
+                )
+                response.raise_for_status()
+                parts = response.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                answer = "".join(part.get("text", "") for part in parts).strip().strip("`'\" ")
+                if re.fullmatch(r"[A-Za-z0-9]{1,32}", answer):
+                    return answer
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                if e.response.status_code in (500, 502, 503, 504):
+                    await asyncio.sleep(2)
+                    continue
+                break
+            except Exception as e:
+                last_error = e
+                await asyncio.sleep(1)
+                continue
+    if last_error:
+        raise last_error
+    raise RuntimeError("Gemini khong tra ve ma CAPTCHA hop le.")
 
 
 async def read_iuh(client: httpx.AsyncClient, credentials: dict[str, str]) -> list[Activity]:
